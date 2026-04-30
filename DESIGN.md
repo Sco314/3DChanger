@@ -279,8 +279,8 @@ Each slice is shippable on its own and never breaks the "preserve source data fi
 |---|---|---|
 | 1 | Vite + TS scaffold; GLTF/OBJ+MTL/STL import; diagnostics traversal; GLB / glTF-zip / OBJ / STL export | **Done** (merged) |
 | 2 | Scene tree, object selection, hide/show, isolate, lock, duplicate, transform gizmo (move/rotate/scale) | **Done** (PR #3) |
-| 3 | Mesh component selection: face / edge / vertex modes; actions: connected, by material, by object, by normal angle | **Done** (this PR) |
-| 4 | Edit actions: delete faces, keep / delete unselected, separate, detach by material, detach by component, fill boundary loops, recompute normals on request | Not started |
+| 3 | Mesh component selection: face / edge / vertex modes; actions: connected, by material, by object, by normal angle | **Done** (PR #4) |
+| 4 | Edit actions: delete faces, keep / delete unselected, separate, detach by material, detach by component, fill boundary loops, recompute normals on request | **Done** (this PR) |
 | 5 | Material editing on `MeshStandardMaterial`: assign new material, change base color / roughness / metalness, preserve UVs unless user opts in to a destructive op | Not started |
 | 6 | Extended format coverage via Online3DViewer importers/exporters (FBX, STEP, IFC, 3DS, PLY, OFF, …) | Not started |
 | 7 | Sculpt mode — opt-in, UV-preservation warning, brushes ported from SculptGL `src/editing/tools/*` (Brush, Smooth, Inflate, Flatten, Pinch, Crease, Move, Drag, Twist, Masking, Paint, LocalScale) | Not started |
