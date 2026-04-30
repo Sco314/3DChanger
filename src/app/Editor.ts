@@ -7,6 +7,8 @@ import { Isolation } from '../scene/Isolation.js';
 import { TransformGizmo } from '../scene/TransformGizmo.js';
 import { isLocked, setLocked } from '../scene/objectMeta.js';
 import { duplicateObject } from '../scene/operations.js';
+import { ComponentSelection } from '../scene/components/ComponentSelection.js';
+import { ComponentVisuals } from '../scene/components/ComponentVisuals.js';
 
 export class Editor {
   readonly renderer: THREE.WebGLRenderer;
@@ -24,6 +26,8 @@ export class Editor {
   readonly selectionVisuals: SelectionVisuals;
   readonly isolation = new Isolation();
   readonly gizmo: TransformGizmo;
+  readonly componentSelection = new ComponentSelection();
+  readonly componentVisuals: ComponentVisuals;
 
   /** Fired after a scene-tree-relevant change (visibility, lock, hierarchy). */
   private readonly treeListeners = new Set<() => void>();
@@ -55,6 +59,7 @@ export class Editor {
 
     this.selectionVisuals = new SelectionVisuals(this.scene, this.selection);
     this.gizmo = new TransformGizmo(this.camera, this.renderer.domElement, this.scene, this.controls);
+    this.componentVisuals = new ComponentVisuals(this.scene, this.componentSelection);
 
     // Keep gizmo's attached object in sync with the primary selection.
     this.selection.on(() => {
@@ -96,6 +101,7 @@ export class Editor {
   setModel(root: THREE.Object3D, animations: THREE.AnimationClip[] = []) {
     this.isolation.exit(this.modelRoot);
     this.selection.clear();
+    this.componentSelection.clear();
     this.modelRoot.clear();
     this.modelRoot.add(root);
     this.animations = animations;
