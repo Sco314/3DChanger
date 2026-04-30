@@ -35,6 +35,32 @@ body {
 .btn:hover { background: #3a4047; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .tool-btn.active { background: #4a82ff; border-color: #4a82ff; color: #fff; }
+.mode-btn.active { background: #ff8a3a; border-color: #ff8a3a; color: #fff; }
+
+#component-actions {
+  position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  background: #23262a;
+  border: 1px solid #2f343a;
+  border-radius: 6px;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+#component-actions .inline {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: #8a9099;
+  font-size: 12px;
+}
+#component-actions input[type="number"] {
+  width: 56px;
+  background: #2f343a;
+  border: 1px solid #3a4047;
+  color: #e6e7e9;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
 
 /* Scene tree (left) */
 #scene-panel {

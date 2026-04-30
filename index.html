@@ -17,14 +17,20 @@
           <input type="file" id="file-input" multiple hidden />
         </label>
         <span class="sep"></span>
-        <span class="group-label">Tool:</span>
-        <button class="btn tool-btn" id="tool-select" title="Select (Q)">Select</button>
+        <span class="group-label">Mode:</span>
+        <button class="btn mode-btn" id="mode-object" title="Object (1)">Object</button>
+        <button class="btn mode-btn" id="mode-face" title="Face (2)">Face</button>
+        <button class="btn mode-btn" id="mode-edge" title="Edge (3)">Edge</button>
+        <button class="btn mode-btn" id="mode-vertex" title="Vertex (4)">Vertex</button>
+        <span class="sep"></span>
+        <span class="group-label">Gizmo:</span>
+        <button class="btn tool-btn" id="tool-select" title="Off (Q)">Off</button>
         <button class="btn tool-btn" id="tool-translate" title="Translate (W)">Move</button>
         <button class="btn tool-btn" id="tool-rotate" title="Rotate (E)">Rotate</button>
         <button class="btn tool-btn" id="tool-scale" title="Scale (R)">Scale</button>
         <span class="sep"></span>
-        <button class="btn" id="op-isolate" title="Isolate selection (I) / exit (Esc)" disabled>Isolate</button>
-        <button class="btn" id="op-duplicate" title="Duplicate selection (Shift+D)" disabled>Duplicate</button>
+        <button class="btn" id="op-isolate" title="Isolate (I) / exit (Esc)" disabled>Isolate</button>
+        <button class="btn" id="op-duplicate" title="Duplicate (Shift+D)" disabled>Duplicate</button>
         <span class="sep"></span>
         <span class="group-label">Export:</span>
         <button class="btn" id="export-glb" disabled>GLB</button>
@@ -32,6 +38,19 @@
         <button class="btn" id="export-obj" disabled>OBJ</button>
         <button class="btn" id="export-stl" disabled>STL</button>
       </header>
+
+      <div id="component-actions" hidden>
+        <span class="group-label">Component actions:</span>
+        <button class="btn" id="ca-by-object" disabled title="Select all faces of the seed mesh">By Object</button>
+        <button class="btn" id="ca-by-material" disabled title="Select faces sharing the seed material across the scene">By Material</button>
+        <button class="btn" id="ca-connected" disabled title="Flood-fill faces from the seed via shared edges">Connected</button>
+        <button class="btn" id="ca-by-angle" disabled title="Flood-fill stopping at hard edges (dihedral &gt; threshold)">By Angle</button>
+        <label class="inline">
+          Angle (°):
+          <input type="number" id="ca-angle-deg" min="0" max="180" step="1" value="30" />
+        </label>
+        <button class="btn" id="ca-clear" disabled title="Clear component selection">Clear</button>
+      </div>
 
       <aside id="scene-panel">
         <h3>Scene</h3>

@@ -9,6 +9,8 @@ import { exportSTL } from '../io/export/exportSTL.js';
 import { SceneTree } from '../scene/SceneTree.js';
 import { pickObject } from '../scene/picking.js';
 import type { TransformMode } from '../scene/TransformGizmo.js';
+import { pickComponent } from '../scene/components/picking.js';
+import type { ComponentMode } from '../scene/components/types.js';
 
 const app = document.getElementById('app')!;
 const viewport = document.getElementById('viewport')!;
@@ -46,6 +48,24 @@ const toolButtons: Record<'select' | TransformMode, HTMLButtonElement> = {
   rotate:    document.getElementById('tool-rotate') as HTMLButtonElement,
   scale:     document.getElementById('tool-scale') as HTMLButtonElement,
 };
+
+type SelMode = 'object' | ComponentMode;
+const modeButtons: Record<SelMode, HTMLButtonElement> = {
+  object: document.getElementById('mode-object') as HTMLButtonElement,
+  face:   document.getElementById('mode-face')   as HTMLButtonElement,
+  edge:   document.getElementById('mode-edge')   as HTMLButtonElement,
+  vertex: document.getElementById('mode-vertex') as HTMLButtonElement,
+};
+
+const componentBar = document.getElementById('component-actions') as HTMLDivElement;
+const caButtons = {
+  byObject:   document.getElementById('ca-by-object')   as HTMLButtonElement,
+  byMaterial: document.getElementById('ca-by-material') as HTMLButtonElement,
+  connected:  document.getElementById('ca-connected')   as HTMLButtonElement,
+  byAngle:    document.getElementById('ca-by-angle')    as HTMLButtonElement,
+  clear:      document.getElementById('ca-clear')       as HTMLButtonElement,
+};
+const caAngleInput = document.getElementById('ca-angle-deg') as HTMLInputElement;
 
 let lastBaseName = 'model';
 
@@ -95,6 +115,47 @@ opButtons.isolate.addEventListener('click', () => {
 });
 opButtons.duplicate.addEventListener('click', () => editor.duplicateSelection());
 
+// ---- Selection mode ----
+
+let selMode: SelMode = 'object';
+
+function setMode(m: SelMode) {
+  selMode = m;
+  for (const [k, btn] of Object.entries(modeButtons)) {
+    btn.classList.toggle('active', k === m);
+  }
+  componentBar.hidden = (m === 'object');
+  if (m !== 'object') editor.componentSelection.setMode(m);
+  refreshComponentButtons();
+}
+setMode('object');
+
+modeButtons.object.addEventListener('click', () => setMode('object'));
+modeButtons.face.addEventListener('click',   () => setMode('face'));
+modeButtons.edge.addEventListener('click',   () => setMode('edge'));
+modeButtons.vertex.addEventListener('click', () => setMode('vertex'));
+
+function refreshComponentButtons() {
+  const seed = editor.componentSelection.getSeed();
+  const hasSeed = seed !== null;
+  const hasAny = editor.componentSelection.size() > 0;
+  caButtons.byObject.disabled = !hasSeed;
+  caButtons.byMaterial.disabled = !hasSeed;
+  caButtons.connected.disabled = !hasSeed;
+  caButtons.byAngle.disabled = !hasSeed;
+  caButtons.clear.disabled = !hasAny;
+}
+editor.componentSelection.on(refreshComponentButtons);
+
+caButtons.byObject.addEventListener('click', () => editor.componentSelection.selectByObject());
+caButtons.byMaterial.addEventListener('click', () => editor.componentSelection.selectByMaterial(editor.modelRoot));
+caButtons.connected.addEventListener('click', () => editor.componentSelection.selectConnected());
+caButtons.byAngle.addEventListener('click', () => {
+  const deg = Number(caAngleInput.value);
+  editor.componentSelection.selectByNormalAngle(Number.isFinite(deg) ? deg : 30);
+});
+caButtons.clear.addEventListener('click', () => editor.componentSelection.clear());
+
 // ---- Viewport picking ----
 
 let gizmoOwnedPointer = false;
@@ -110,13 +171,28 @@ canvas.addEventListener('click', (e) => {
   if (gizmoOwnedPointer) { gizmoOwnedPointer = false; return; }
   if (editor.gizmo.isDragging()) return;
 
-  const hit = pickObject(e, canvas, editor.camera, editor.modelRoot);
-  if (!hit) {
-    if (!(e.shiftKey || e.metaKey || e.ctrlKey)) editor.selection.clear();
+  const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+
+  if (selMode === 'object') {
+    const hit = pickObject(e, canvas, editor.camera, editor.modelRoot);
+    if (!hit) {
+      if (!additive) editor.selection.clear();
+      return;
+    }
+    if (additive) editor.selection.toggle(hit);
+    else editor.selection.set(hit);
     return;
   }
-  if (e.shiftKey || e.metaKey || e.ctrlKey) editor.selection.toggle(hit);
-  else editor.selection.set(hit);
+
+  // Component modes (face / edge / vertex).
+  const cHit = pickComponent(e, canvas, editor.camera, editor.modelRoot);
+  if (!cHit) {
+    if (!additive) editor.componentSelection.clear();
+    return;
+  }
+  if (selMode === 'face')   editor.componentSelection.toggleFace(cHit.mesh, cHit.faceIndex, additive);
+  if (selMode === 'edge')   editor.componentSelection.toggleEdge(cHit.mesh, cHit.nearestEdge, additive);
+  if (selMode === 'vertex') editor.componentSelection.toggleVertex(cHit.mesh, cHit.nearestVertex, additive);
 });
 
 // ---- Keyboard shortcuts ----
@@ -128,6 +204,11 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'w' || e.key === 'W') { setTool('translate'); e.preventDefault(); return; }
   if (e.key === 'e' || e.key === 'E') { setTool('rotate');    e.preventDefault(); return; }
   if (e.key === 'r' || e.key === 'R') { setTool('scale');     e.preventDefault(); return; }
+
+  if (e.key === '1') { setMode('object'); e.preventDefault(); return; }
+  if (e.key === '2') { setMode('face');   e.preventDefault(); return; }
+  if (e.key === '3') { setMode('edge');   e.preventDefault(); return; }
+  if (e.key === '4') { setMode('vertex'); e.preventDefault(); return; }
 
   if (e.key === 'h' || e.key === 'H') {
     for (const obj of editor.selection.all()) editor.toggleVisibility(obj);
@@ -147,6 +228,7 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Escape') {
     if (editor.isolation.isActive()) editor.exitIsolate();
+    else if (editor.componentSelection.size() > 0) editor.componentSelection.clear();
     else editor.selection.clear();
     e.preventDefault();
   }
