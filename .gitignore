@@ -1,0 +1,7 @@
+node_modules/
+dist/
+public/draco/
+public/basis/
+tsconfig.tsbuildinfo
+.DS_Store
+*.log
