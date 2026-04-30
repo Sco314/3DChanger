@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3DChanger</title>
+    <link rel="stylesheet" href="/src/ui/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="viewport"></div>
+      <header id="toolbar">
+        <span class="brand">3DChanger</span>
+        <label class="btn">
+          Import…
+          <input type="file" id="file-input" multiple hidden />
+        </label>
+        <span class="sep"></span>
+        <span class="group-label">Export:</span>
+        <button class="btn" id="export-glb" disabled>GLB</button>
+        <button class="btn" id="export-gltf" disabled>glTF (zip)</button>
+        <button class="btn" id="export-obj" disabled>OBJ</button>
+        <button class="btn" id="export-stl" disabled>STL</button>
+      </header>
+      <aside id="diagnostics">
+        <h3>Diagnostics</h3>
+        <div id="diagnostics-body"><em>No model loaded.</em></div>
+      </aside>
+      <div id="dropzone-hint">Drop files here, or use Import…</div>
+    </div>
+    <script type="module" src="/src/app/main.ts"></script>
+  </body>
+</html>
