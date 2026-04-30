@@ -8,6 +8,7 @@ body {
 #viewport { position: absolute; inset: 0; }
 #viewport canvas { display: block; width: 100%; height: 100%; }
 
+/* Toolbar */
 #toolbar {
   position: absolute; top: 8px; left: 8px;
   display: flex; align-items: center; gap: 6px;
@@ -16,6 +17,8 @@ body {
   border: 1px solid #2f343a;
   border-radius: 6px;
   z-index: 10;
+  flex-wrap: wrap;
+  max-width: calc(100% - 296px);
 }
 #toolbar .brand { font-weight: 600; margin-right: 8px; }
 #toolbar .sep { width: 1px; height: 18px; background: #3a3f46; margin: 0 4px; }
@@ -31,7 +34,45 @@ body {
 }
 .btn:hover { background: #3a4047; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.tool-btn.active { background: #4a82ff; border-color: #4a82ff; color: #fff; }
 
+/* Scene tree (left) */
+#scene-panel {
+  position: absolute; top: 56px; left: 8px;
+  width: 260px;
+  max-height: calc(100% - 72px);
+  background: #23262a;
+  border: 1px solid #2f343a;
+  border-radius: 6px;
+  padding: 8px 10px 10px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+#scene-panel h3 {
+  margin: 0 0 6px; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.06em; color: #8a9099;
+}
+#scene-tree { overflow: auto; flex: 1; }
+#scene-tree .empty { color: #6a707a; }
+ul.tree, ul.tree-children { list-style: none; padding: 0; margin: 0; }
+.tree-row {
+  display: flex; align-items: center; gap: 4px;
+  padding: 2px 6px 2px 4px;
+  border-radius: 3px;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+}
+.tree-row:hover { background: #2c3036; }
+.tree-row.selected { background: #2a3a5a; }
+.tree-row.primary { background: #34508a; }
+.tree-row .chev { width: 12px; color: #6a707a; cursor: pointer; text-align: center; }
+.tree-row .icon { width: 16px; cursor: pointer; text-align: center; opacity: 0.85; }
+.tree-row .icon:hover { opacity: 1.0; }
+.tree-row .label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+
+/* Diagnostics (right) */
 #diagnostics {
   position: absolute; top: 8px; right: 8px;
   width: 260px;

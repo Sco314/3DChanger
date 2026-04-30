@@ -9,6 +9,7 @@
   <body>
     <div id="app">
       <div id="viewport"></div>
+
       <header id="toolbar">
         <span class="brand">3DChanger</span>
         <label class="btn">
@@ -16,16 +17,32 @@
           <input type="file" id="file-input" multiple hidden />
         </label>
         <span class="sep"></span>
+        <span class="group-label">Tool:</span>
+        <button class="btn tool-btn" id="tool-select" title="Select (Q)">Select</button>
+        <button class="btn tool-btn" id="tool-translate" title="Translate (W)">Move</button>
+        <button class="btn tool-btn" id="tool-rotate" title="Rotate (E)">Rotate</button>
+        <button class="btn tool-btn" id="tool-scale" title="Scale (R)">Scale</button>
+        <span class="sep"></span>
+        <button class="btn" id="op-isolate" title="Isolate selection (I) / exit (Esc)" disabled>Isolate</button>
+        <button class="btn" id="op-duplicate" title="Duplicate selection (Shift+D)" disabled>Duplicate</button>
+        <span class="sep"></span>
         <span class="group-label">Export:</span>
         <button class="btn" id="export-glb" disabled>GLB</button>
         <button class="btn" id="export-gltf" disabled>glTF (zip)</button>
         <button class="btn" id="export-obj" disabled>OBJ</button>
         <button class="btn" id="export-stl" disabled>STL</button>
       </header>
+
+      <aside id="scene-panel">
+        <h3>Scene</h3>
+        <div id="scene-tree"><em class="empty">No model loaded.</em></div>
+      </aside>
+
       <aside id="diagnostics">
         <h3>Diagnostics</h3>
         <div id="diagnostics-body"><em>No model loaded.</em></div>
       </aside>
+
       <div id="dropzone-hint">Drop files here, or use Import…</div>
     </div>
     <script type="module" src="/src/app/main.ts"></script>
