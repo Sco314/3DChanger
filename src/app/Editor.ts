@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+import { Selection } from '../scene/Selection.js';
+import { SelectionVisuals } from '../scene/SelectionVisuals.js';
+import { Isolation } from '../scene/Isolation.js';
+import { TransformGizmo } from '../scene/TransformGizmo.js';
+import { isLocked, setLocked } from '../scene/objectMeta.js';
+import { duplicateObject } from '../scene/operations.js';
+
 export class Editor {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene: THREE.Scene;
@@ -12,6 +19,14 @@ export class Editor {
 
   /** Animation clips that came with the loaded model (e.g. from glTF). */
   animations: THREE.AnimationClip[] = [];
+
+  readonly selection = new Selection();
+  readonly selectionVisuals: SelectionVisuals;
+  readonly isolation = new Isolation();
+  readonly gizmo: TransformGizmo;
+
+  /** Fired after a scene-tree-relevant change (visibility, lock, hierarchy). */
+  private readonly treeListeners = new Set<() => void>();
 
   constructor(container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -38,6 +53,17 @@ export class Editor {
     this.modelRoot.name = 'modelRoot';
     this.scene.add(this.modelRoot);
 
+    this.selectionVisuals = new SelectionVisuals(this.scene, this.selection);
+    this.gizmo = new TransformGizmo(this.camera, this.renderer.domElement, this.scene, this.controls);
+
+    // Keep gizmo's attached object in sync with the primary selection.
+    this.selection.on(() => {
+      this.gizmo.attach(this.selection.primary() ?? null);
+    });
+
+    // Update selection wireframes during gizmo drag.
+    this.gizmo.onChange(() => this.selectionVisuals.refresh());
+
     this.handleResize();
     window.addEventListener('resize', () => this.handleResize());
 
@@ -56,12 +82,25 @@ export class Editor {
     this.camera.updateProjectionMatrix();
   }
 
+  /** Subscribe to scene-tree-relevant changes. Returns an unsubscribe fn. */
+  onTreeChanged(fn: () => void): () => void {
+    this.treeListeners.add(fn);
+    return () => this.treeListeners.delete(fn);
+  }
+
+  private emitTreeChanged() {
+    for (const fn of this.treeListeners) fn();
+  }
+
   /** Replace the current model with a new root, then frame the camera on it. */
   setModel(root: THREE.Object3D, animations: THREE.AnimationClip[] = []) {
+    this.isolation.exit(this.modelRoot);
+    this.selection.clear();
     this.modelRoot.clear();
     this.modelRoot.add(root);
     this.animations = animations;
     this.frameOnObject(root);
+    this.emitTreeChanged();
   }
 
   frameOnObject(obj: THREE.Object3D) {
@@ -77,5 +116,53 @@ export class Editor {
     this.camera.updateProjectionMatrix();
     this.controls.target.copy(center);
     this.controls.update();
+  }
+
+  // ---- Object-level operations ----
+
+  toggleVisibility(obj: THREE.Object3D) {
+    obj.visible = !obj.visible;
+    this.selectionVisuals.refresh();
+    this.emitTreeChanged();
+  }
+
+  toggleLock(obj: THREE.Object3D) {
+    setLocked(obj, !isLocked(obj));
+    if (isLocked(obj) && this.gizmo.controls.object === obj) {
+      this.gizmo.detach();
+    } else if (!isLocked(obj) && this.selection.primary() === obj) {
+      this.gizmo.attach(obj);
+    }
+    this.emitTreeChanged();
+  }
+
+  isolateSelection() {
+    const targets = this.selection.all();
+    if (targets.length === 0) return;
+    this.isolation.enter(targets, this.modelRoot);
+    this.selectionVisuals.refresh();
+    this.emitTreeChanged();
+  }
+
+  exitIsolate() {
+    if (!this.isolation.isActive()) return;
+    this.isolation.exit(this.modelRoot);
+    this.selectionVisuals.refresh();
+    this.emitTreeChanged();
+  }
+
+  duplicateSelection(): THREE.Object3D[] {
+    const sources = [...this.selection.all()];
+    const created: THREE.Object3D[] = [];
+    for (const src of sources) {
+      const copy = duplicateObject(src);
+      if (copy) created.push(copy);
+    }
+    if (created.length > 0) {
+      this.selection.clear();
+      for (const c of created) this.selection.add(c);
+      this.emitTreeChanged();
+    }
+    return created;
   }
 }
