@@ -24,6 +24,8 @@ import {
   makeMaterialUnique as makeMaterialUniqueOp,
   assignFaceMaterial,
 } from '../scene/materials/materialOps.js';
+import { SculptMode } from '../scene/sculpt/SculptMode.js';
+import { invalidateSculptCache } from '../scene/sculpt/SculptContext.js';
 
 export class Editor {
   readonly renderer: THREE.WebGLRenderer;
@@ -43,6 +45,7 @@ export class Editor {
   readonly gizmo: TransformGizmo;
   readonly componentSelection = new ComponentSelection();
   readonly componentVisuals: ComponentVisuals;
+  readonly sculpt: SculptMode;
 
   /** Fired after a scene-tree-relevant change (visibility, lock, hierarchy). */
   private readonly treeListeners = new Set<() => void>();
@@ -75,6 +78,16 @@ export class Editor {
     this.selectionVisuals = new SelectionVisuals(this.scene, this.selection);
     this.gizmo = new TransformGizmo(this.camera, this.renderer.domElement, this.scene, this.controls);
     this.componentVisuals = new ComponentVisuals(this.scene, this.componentSelection);
+    this.sculpt = new SculptMode(
+      this.scene,
+      this.camera,
+      this.renderer.domElement,
+      this.controls,
+      () => {
+        const p = this.selection.primary();
+        return p && (p as THREE.Mesh).isMesh ? (p as THREE.Mesh) : null;
+      },
+    );
 
     // Keep gizmo's attached object in sync with the primary selection.
     this.selection.on(() => {
@@ -114,6 +127,11 @@ export class Editor {
 
   /** Replace the current model with a new root, then frame the camera on it. */
   setModel(root: THREE.Object3D, animations: THREE.AnimationClip[] = []) {
+    this.sculpt.setEnabled(false);
+    // Drop any sculpt cache on outgoing meshes so we don't keep refs.
+    this.modelRoot.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) invalidateSculptCache(o as THREE.Mesh);
+    });
     this.isolation.exit(this.modelRoot);
     this.selection.clear();
     this.componentSelection.clear();

@@ -113,9 +113,48 @@ ul.tree, ul.tree-children { list-style: none; padding: 0; margin: 0; }
 #diagnostics { top: 8px; }
 #material-panel {
   top: 270px;
-  max-height: calc(100% - 286px);
+  max-height: 280px;
   overflow: auto;
 }
+#sculpt-panel {
+  position: absolute; right: 8px; top: 562px;
+  width: 260px;
+  background: #23262a;
+  border: 1px solid #2f343a;
+  border-radius: 6px;
+  padding: 10px 12px;
+  z-index: 10;
+  max-height: calc(100% - 578px);
+  overflow: auto;
+}
+#sculpt-panel h3 {
+  margin: 0 0 6px; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.06em; color: #8a9099;
+}
+#sculpt-body .empty { color: #6a707a; }
+.sculpt-warning {
+  background: #2c2820;
+  border: 1px solid #6a5318;
+  color: #f1d59c;
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.sculpt-warning .btn { margin-top: 6px; font-size: 11px; padding: 3px 8px; }
+.brush-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.brush-btn { font-size: 11px; padding: 3px 8px; }
+.brush-btn.active { background: #4a82ff; border-color: #4a82ff; color: #fff; }
+.sculpt-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; margin-bottom: 6px;
+}
+.sculpt-label { color: #8a9099; flex: 1; }
+.sculpt-row input[type="range"] { flex: 2; }
+.sculpt-num { color: #e6e7e9; font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; }
+.sculpt-checkbox { cursor: pointer; }
+.mode-btn.active { background: #ff8a3a; border-color: #ff8a3a; color: #fff; }
+#mode-sculpt.active { background: #b04ad6; border-color: #b04ad6; }
 #diagnostics h3, #material-panel h3 {
   margin: 0 0 6px; font-size: 12px;
   text-transform: uppercase; letter-spacing: 0.06em; color: #8a9099;

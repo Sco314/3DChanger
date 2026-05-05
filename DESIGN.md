@@ -282,8 +282,8 @@ Each slice is shippable on its own and never breaks the "preserve source data fi
 | 3 | Mesh component selection: face / edge / vertex modes; actions: connected, by material, by object, by normal angle | **Done** (PR #4) |
 | 4 | Edit actions: delete faces, keep / delete unselected, separate, detach by material, detach by component, fill boundary loops, recompute normals on request | **Done** (PR #5) |
 | 5 | Material editing on `MeshStandardMaterial`: assign new material, change base color / roughness / metalness, preserve UVs unless user opts in to a destructive op | **Done** (PR #6) |
-| 6 | Extended format coverage — three.js paths for FBX, 3DS, PLY, DAE, VRML, 3MF (lazy code-split). OV CAD path (STEP, IGES, IFC, 3DM, BREP, FCSTD, BIM) is deferred to a focused follow-up; see § 9. | **Done — three.js paths only** (this PR) |
-| 7 | Sculpt mode — opt-in, UV-preservation warning, brushes ported from SculptGL `src/editing/tools/*` (Brush, Smooth, Inflate, Flatten, Pinch, Crease, Move, Drag, Twist, Masking, Paint, LocalScale) | Not started |
+| 6 | Extended format coverage — three.js paths for FBX, 3DS, PLY, DAE, VRML, 3MF (lazy code-split). OV CAD path (STEP, IGES, IFC, 3DM, BREP, FCSTD, BIM) is deferred to a focused follow-up; see § 9. | **Done — three.js paths only** (PR #7) |
+| 7 | Sculpt mode — opt-in, UV-preservation warning, six brushes (Inflate, Smooth, Flatten, Pinch, Grab, Mask). Welded-aware so non-indexed meshes don't crack. Crease / Twist / LocalScale / Drag / Paint deferred. | **Done** (this PR) |
 
 
 ---
