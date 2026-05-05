@@ -349,7 +349,7 @@ async function handleFiles(files: File[]) {
 
 function baseNameFromFiles(files: File[]): string {
   const preferred =
-    files.find((f) => /\.(glb|gltf|obj|stl)$/i.test(f.name)) ?? files[0];
+    files.find((f) => /\.(glb|gltf|obj|stl|fbx|3ds|ply|dae|wrl|3mf)$/i.test(f.name)) ?? files[0];
   return preferred.name.replace(/\.[^.]+$/, '') || 'model';
 }
 
