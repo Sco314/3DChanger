@@ -1,3 +1,5 @@
+import type * as THREE from 'three';
+
 import { Editor } from './Editor.js';
 import { importFiles } from '../io/import/index.js';
 import { diagnose } from '../diagnostics/diagnose.js';
@@ -66,6 +68,16 @@ const caButtons = {
   clear:      document.getElementById('ca-clear')       as HTMLButtonElement,
 };
 const caAngleInput = document.getElementById('ca-angle-deg') as HTMLInputElement;
+
+const edButtons = {
+  deleteFaces:   document.getElementById('ed-delete')             as HTMLButtonElement,
+  keepFaces:     document.getElementById('ed-keep')               as HTMLButtonElement,
+  separate:      document.getElementById('ed-separate')           as HTMLButtonElement,
+  detachMat:     document.getElementById('ed-detach-mat')         as HTMLButtonElement,
+  detachComp:    document.getElementById('ed-detach-comp')        as HTMLButtonElement,
+  fillHoles:     document.getElementById('ed-fill-holes')         as HTMLButtonElement,
+  recomputeNorm: document.getElementById('ed-recompute-normals')  as HTMLButtonElement,
+};
 
 let lastBaseName = 'model';
 
@@ -156,6 +168,46 @@ caButtons.byAngle.addEventListener('click', () => {
 });
 caButtons.clear.addEventListener('click', () => editor.componentSelection.clear());
 
+// ---- Edit actions (Slice 4) ----
+
+function hasFaceSelection(): boolean {
+  for (const [, s] of editor.componentSelection.states_()) {
+    if (s.faces.size > 0) return true;
+  }
+  return false;
+}
+
+function hasMeshObjectSelection(): boolean {
+  for (const obj of editor.selection.all()) {
+    if ((obj as THREE.Mesh).isMesh) return true;
+  }
+  return false;
+}
+
+function refreshEditButtons() {
+  const faces = hasFaceSelection();
+  const meshes = hasMeshObjectSelection();
+  edButtons.deleteFaces.disabled = !faces;
+  edButtons.keepFaces.disabled = !faces;
+  edButtons.separate.disabled = !faces;
+  edButtons.detachMat.disabled = !meshes;
+  edButtons.detachComp.disabled = !meshes;
+  edButtons.fillHoles.disabled = !meshes;
+  edButtons.recomputeNorm.disabled = !meshes;
+}
+editor.selection.on(refreshEditButtons);
+editor.componentSelection.on(refreshEditButtons);
+editor.onTreeChanged(refreshEditButtons);
+refreshEditButtons();
+
+edButtons.deleteFaces.addEventListener('click',   () => editor.deleteSelectedFaces());
+edButtons.keepFaces.addEventListener('click',     () => editor.keepSelectedFaces());
+edButtons.separate.addEventListener('click',      () => editor.separateSelectedFaces());
+edButtons.detachMat.addEventListener('click',     () => editor.detachByMaterial());
+edButtons.detachComp.addEventListener('click',    () => editor.detachByComponent());
+edButtons.fillHoles.addEventListener('click',     () => editor.fillHoles());
+edButtons.recomputeNorm.addEventListener('click', () => editor.recomputeNormals());
+
 // ---- Viewport picking ----
 
 let gizmoOwnedPointer = false;
@@ -224,6 +276,13 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'd' || e.key === 'D') && e.shiftKey) {
     editor.duplicateSelection();
     e.preventDefault();
+    return;
+  }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (hasFaceSelection()) {
+      editor.deleteSelectedFaces();
+      e.preventDefault();
+    }
     return;
   }
   if (e.key === 'Escape') {

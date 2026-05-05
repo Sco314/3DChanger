@@ -9,6 +9,16 @@ import { isLocked, setLocked } from '../scene/objectMeta.js';
 import { duplicateObject } from '../scene/operations.js';
 import { ComponentSelection } from '../scene/components/ComponentSelection.js';
 import { ComponentVisuals } from '../scene/components/ComponentVisuals.js';
+import {
+  deleteFaces,
+  keepFaces,
+  separateFaces,
+  detachByMaterial as detachByMaterialOp,
+  detachByComponent as detachByComponentOp,
+  fillHoles as fillHolesOp,
+  recomputeNormals as recomputeNormalsOp,
+  type EditDelta,
+} from '../scene/edit/meshEdits.js';
 
 export class Editor {
   readonly renderer: THREE.WebGLRenderer;
@@ -170,5 +180,94 @@ export class Editor {
       this.emitTreeChanged();
     }
     return created;
+  }
+
+  // ---- Mesh edit operations (Slice 4) ----
+
+  /** Delete every selected face on every mesh that has component selection. */
+  deleteSelectedFaces(): EditDelta {
+    return this.applyToFaceMeshes((mesh, faces) => deleteFaces(mesh, faces));
+  }
+
+  /** Keep selected faces on each mesh, drop everything else on those meshes. */
+  keepSelectedFaces(): EditDelta {
+    return this.applyToFaceMeshes((mesh, faces) => keepFaces(mesh, faces));
+  }
+
+  /** Separate the selected faces of each mesh into a new sibling Mesh. */
+  separateSelectedFaces(): EditDelta {
+    return this.applyToFaceMeshes((mesh, faces) => separateFaces(mesh, faces));
+  }
+
+  /** Split each selected mesh into one new Mesh per material slot. */
+  detachByMaterial(): EditDelta {
+    return this.applyToObjectMeshes((mesh) => detachByMaterialOp(mesh));
+  }
+
+  /** Split each selected mesh into one new Mesh per connected component. */
+  detachByComponent(): EditDelta {
+    return this.applyToObjectMeshes((mesh) => detachByComponentOp(mesh));
+  }
+
+  /** Fill all detected boundary loops on each selected mesh. */
+  fillHoles(): EditDelta {
+    return this.applyToObjectMeshes((mesh) => fillHolesOp(mesh));
+  }
+
+  /** Recompute vertex normals on each selected mesh. */
+  recomputeNormals(): EditDelta {
+    return this.applyToObjectMeshes((mesh) => recomputeNormalsOp(mesh));
+  }
+
+  // ---- Internals ----
+
+  private applyToFaceMeshes(
+    op: (mesh: THREE.Mesh, faces: ReadonlySet<number>) => EditDelta,
+  ): EditDelta {
+    const states = this.componentSelection.states_();
+    if (states.size === 0) return { removed: [], added: [], modified: [] };
+    // Snapshot to avoid mutation while iterating.
+    const work: Array<[THREE.Mesh, ReadonlySet<number>]> = [];
+    for (const [mesh, state] of states) {
+      if (state.faces.size === 0) continue;
+      work.push([mesh, new Set(state.faces)]);
+    }
+    return this.applyDeltas(work.map(([m, f]) => op(m, f)));
+  }
+
+  private applyToObjectMeshes(op: (mesh: THREE.Mesh) => EditDelta): EditDelta {
+    const targets: THREE.Mesh[] = [];
+    for (const obj of this.selection.all()) {
+      if ((obj as THREE.Mesh).isMesh) targets.push(obj as THREE.Mesh);
+    }
+    if (targets.length === 0) return { removed: [], added: [], modified: [] };
+    return this.applyDeltas(targets.map((m) => op(m)));
+  }
+
+  private applyDeltas(deltas: EditDelta[]): EditDelta {
+    const merged: EditDelta = { removed: [], added: [], modified: [] };
+    for (const d of deltas) {
+      merged.removed.push(...d.removed);
+      merged.added.push(...d.added);
+      merged.modified.push(...d.modified);
+    }
+    if (merged.removed.length === 0 && merged.added.length === 0 && merged.modified.length === 0) {
+      return merged;
+    }
+
+    // Drop any selection / gizmo references to removed meshes.
+    for (const m of merged.removed) {
+      this.selection.remove(m);
+      if (this.gizmo.controls.object === m) this.gizmo.detach();
+    }
+    // Component-level face/edge/vertex indices are no longer meaningful for
+    // any mesh whose geometry changed. Clear globally — re-selecting after
+    // an edit is cheap; trying to remap face indices is not.
+    this.componentSelection.clear();
+
+    // Refresh visuals and tree.
+    this.selectionVisuals.refresh();
+    this.emitTreeChanged();
+    return merged;
   }
 }

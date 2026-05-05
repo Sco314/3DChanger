@@ -52,6 +52,19 @@
         <button class="btn" id="ca-clear" disabled title="Clear component selection">Clear</button>
       </div>
 
+      <div id="edit-actions">
+        <span class="group-label">Edit:</span>
+        <button class="btn" id="ed-delete" disabled title="Delete selected faces (Del)">Delete Faces</button>
+        <button class="btn" id="ed-keep" disabled title="Keep selected faces, delete the rest on those meshes">Keep Faces</button>
+        <button class="btn" id="ed-separate" disabled title="Move selected faces into a new sibling Mesh">Separate</button>
+        <span class="sep"></span>
+        <button class="btn" id="ed-detach-mat" disabled title="Split selected meshes by material slot">Detach by Material</button>
+        <button class="btn" id="ed-detach-comp" disabled title="Split selected meshes by connected component">Detach by Component</button>
+        <span class="sep"></span>
+        <button class="btn" id="ed-fill-holes" disabled title="Fill open boundary loops on selected meshes (centroid fan)">Fill Holes</button>
+        <button class="btn" id="ed-recompute-normals" disabled title="Run computeVertexNormals() on selected meshes">Recompute Normals</button>
+      </div>
+
       <aside id="scene-panel">
         <h3>Scene</h3>
         <div id="scene-tree"><em class="empty">No model loaded.</em></div>
