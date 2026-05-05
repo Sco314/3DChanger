@@ -281,7 +281,37 @@ Each slice is shippable on its own and never breaks the "preserve source data fi
 | 2 | Scene tree, object selection, hide/show, isolate, lock, duplicate, transform gizmo (move/rotate/scale) | **Done** (PR #3) |
 | 3 | Mesh component selection: face / edge / vertex modes; actions: connected, by material, by object, by normal angle | **Done** (PR #4) |
 | 4 | Edit actions: delete faces, keep / delete unselected, separate, detach by material, detach by component, fill boundary loops, recompute normals on request | **Done** (PR #5) |
-| 5 | Material editing on `MeshStandardMaterial`: assign new material, change base color / roughness / metalness, preserve UVs unless user opts in to a destructive op | **Done** (this PR) |
-| 6 | Extended format coverage via Online3DViewer importers/exporters (FBX, STEP, IFC, 3DS, PLY, OFF, …) | Not started |
+| 5 | Material editing on `MeshStandardMaterial`: assign new material, change base color / roughness / metalness, preserve UVs unless user opts in to a destructive op | **Done** (PR #6) |
+| 6 | Extended format coverage — three.js paths for FBX, 3DS, PLY, DAE, VRML, 3MF (lazy code-split). OV CAD path (STEP, IGES, IFC, 3DM, BREP, FCSTD, BIM) is deferred to a focused follow-up; see § 9. | **Done — three.js paths only** (this PR) |
 | 7 | Sculpt mode — opt-in, UV-preservation warning, brushes ported from SculptGL `src/editing/tools/*` (Brush, Smooth, Inflate, Flatten, Pinch, Crease, Move, Drag, Twist, Masking, Paint, LocalScale) | Not started |
 
+
+---
+
+## 9. Slice-6 follow-up: Online3DViewer CAD path
+
+Slice 6 added the formats three.js ships native loaders for: FBX, 3DS, PLY, DAE, VRML, 3MF. That is most of the import surface real users want.
+
+The remaining "CAD-heavy" formats from § 2 (STEP, IGES, IFC, 3DM, BREP, FCSTD, BIM, AMF, OFF) need a wrapper around `online-3d-viewer`'s engine. The integration is straightforward in the abstract:
+
+```ts
+import * as OV from 'online-3d-viewer';
+const inputFiles = OV.InputFilesFromFileObjects(files);
+const loader = new OV.ThreeModelLoader();
+loader.LoadModel(inputFiles, new OV.ImportSettings(), {
+  onModelFinished: (importResult, threeObject) => { /* threeObject is a THREE.Object3D */ },
+  onLoadError, onTextureLoaded, /* progress callbacks ignored */
+});
+```
+
+OV transparently fetches `rhino3dm`, `web-ifc`, `occt-import-js`, and `draco3d` from jsdelivr at runtime, so our bundle stays small. The wrapper would live at `src/io/import/loadOV.ts` and be lazy-loaded by the dispatcher exactly like the slice-6 loaders.
+
+**Why it's not in this PR.** OV bundles `three@0.176`; we use `three@0.169`. Without a build-time alias, two complete three.js instances would ship in the bundle and the `THREE.Object3D` produced by OV would be a *different class* than ours. Most of our scene code is duck-typed (`obj.isMesh`, attribute reads), but `WebGLRenderer` and `Raycaster` have paths that key off prototype identity for some material/skinning features. Mixing classes risks rendering bugs that are awkward to debug.
+
+The clean way to integrate is one of:
+
+1. **Vite `resolve.alias`** for `three` so OV's import resolves to our copy. Requires verifying OV doesn't rely on three APIs that exist in 0.176 but not 0.169 (or upgrading our three to ≥ 0.176 first).
+2. **Bump our `three` to the version OV depends on** (0.176 at time of writing). Cheap, but pins us to OV's release cadence.
+3. **Port the OV importers we need individually** (Importer3dm, ImporterIfc, ImporterOcct, ImporterFcstd, ImporterBim, ImporterOff) and adapt their three.js conversion to use our three. More work but no external runtime dep on OV.
+
+A focused follow-up slice should pick (1) or (2), validate roundtripping STEP/IGES/IFC samples, and add the CAD extensions to the slice-6 dispatcher and file-picker `accept` attribute.
