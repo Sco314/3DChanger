@@ -19,6 +19,11 @@ import {
   recomputeNormals as recomputeNormalsOp,
   type EditDelta,
 } from '../scene/edit/meshEdits.js';
+import {
+  makeMaterial,
+  makeMaterialUnique as makeMaterialUniqueOp,
+  assignFaceMaterial,
+} from '../scene/materials/materialOps.js';
 
 export class Editor {
   readonly renderer: THREE.WebGLRenderer;
@@ -217,6 +222,49 @@ export class Editor {
   /** Recompute vertex normals on each selected mesh. */
   recomputeNormals(): EditDelta {
     return this.applyToObjectMeshes((mesh) => recomputeNormalsOp(mesh));
+  }
+
+  // ---- Material assignment (Slice 5) ----
+
+  /**
+   * Clone material instances on every selected mesh so subsequent property
+   * edits don't bleed across meshes that shared the original material(s).
+   * Texture references are preserved.
+   */
+  makeMaterialsUnique(): boolean {
+    let changed = false;
+    for (const obj of this.selection.all()) {
+      if (!(obj as THREE.Mesh).isMesh) continue;
+      makeMaterialUniqueOp(obj as THREE.Mesh);
+      changed = true;
+    }
+    if (changed) this.emitTreeChanged();
+    return changed;
+  }
+
+  /**
+   * For every Mesh in the component selection with non-empty face set, append
+   * a new MeshStandardMaterial slot covering those faces. The new material
+   * is cloned from the mesh's first slot so existing textures and UV mapping
+   * carry over.
+   */
+  addSlotForSelectedFaces(): boolean {
+    let changed = false;
+    for (const [mesh, state] of this.componentSelection.states_()) {
+      if (state.faces.size === 0) continue;
+      const template = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const newMat = makeMaterial(template);
+      newMat.name = `${mesh.name || 'mat'} slot`;
+      assignFaceMaterial(mesh, state.faces, newMat);
+      changed = true;
+    }
+    if (changed) {
+      // Component selection face indices stay valid (we didn't change the
+      // index buffer or geometry), so we leave it intact. Tree refreshes so
+      // panels can re-render.
+      this.emitTreeChanged();
+    }
+    return changed;
   }
 
   // ---- Internals ----

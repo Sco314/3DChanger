@@ -13,6 +13,7 @@ import { pickObject } from '../scene/picking.js';
 import type { TransformMode } from '../scene/TransformGizmo.js';
 import { pickComponent } from '../scene/components/picking.js';
 import type { ComponentMode } from '../scene/components/types.js';
+import { MaterialPanel } from '../ui/MaterialPanel.js';
 
 const app = document.getElementById('app')!;
 const viewport = document.getElementById('viewport')!;
@@ -33,6 +34,34 @@ sceneTree.onSelectRow = (obj, e) => {
   else editor.selection.set(obj);
 };
 editor.onTreeChanged(() => sceneTree.refresh());
+
+// ---- Material panel ----
+
+function activeMaterialMesh(): THREE.Mesh | null {
+  const primary = editor.selection.primary();
+  if (primary && (primary as THREE.Mesh).isMesh) return primary as THREE.Mesh;
+  // Fall back to component-selection seed mesh.
+  const seed = editor.componentSelection.getSeed();
+  return seed?.mesh ?? null;
+}
+
+const materialPanel = new MaterialPanel(
+  document.getElementById('material-body')!,
+  {
+    getActiveMesh: () => activeMaterialMesh(),
+    hasFaceSelection: () => {
+      for (const [, s] of editor.componentSelection.states_()) {
+        if (s.faces.size > 0) return true;
+      }
+      return false;
+    },
+    onMakeUnique: () => editor.makeMaterialsUnique(),
+    onAddSlotForFaces: () => editor.addSlotForSelectedFaces(),
+  },
+);
+editor.selection.on(() => materialPanel.render());
+editor.componentSelection.on(() => materialPanel.render());
+editor.onTreeChanged(() => materialPanel.render());
 
 const exportButtons = {
   glb: document.getElementById('export-glb') as HTMLButtonElement,
