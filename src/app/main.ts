@@ -355,12 +355,43 @@ function isEditableTarget(t: EventTarget | null): boolean {
 
 const dropzoneHint = document.getElementById('dropzone-hint');
 
+const SUPPORTED_RE = /\.(glb|gltf|obj|stl|fbx|3ds|ply|dae|wrl|3mf)$/i;
+const IMPORT_TIMEOUT_MS = 60_000;
+
 async function handleFiles(files: File[]) {
   if (files.length === 0) return;
-  const primary = files.find((f) => /\.(glb|gltf|obj|stl|fbx|3ds|ply|dae|wrl|3mf)$/i.test(f.name));
-  setBusy(true, primary ? `Loading ${primary.name}…` : 'Loading…');
+
+  // Report what we received so silent failures are visible in DevTools.
+  console.info('[import] dropped files:', files.map((f) => `${f.name} (${f.size} bytes)`));
+
+  const primary = files.find((f) => SUPPORTED_RE.test(f.name));
+  if (!primary) {
+    const list = files.map((f) => f.name).join(', ');
+    showToast(
+      `No supported 3D file in drop (${list || 'empty'}). ` +
+      'Supported: GLB, glTF, OBJ, STL, FBX, 3DS, PLY, DAE, VRML, 3MF.',
+      'error',
+      8000,
+    );
+    return;
+  }
+
+  setBusy(true, `Loading ${primary.name}…`);
+  let timedOut = false;
+  const watchdog = window.setTimeout(() => {
+    timedOut = true;
+    setBusy(false);
+    showToast(
+      `Import of ${primary.name} did not finish within ${IMPORT_TIMEOUT_MS / 1000}s. ` +
+      'Check the DevTools console for fetch errors (Draco/KTX2 decoders, missing textures).',
+      'error',
+      9000,
+    );
+  }, IMPORT_TIMEOUT_MS);
+
   try {
     const { root, animations, format } = await importFiles(files, editor.renderer);
+    if (timedOut) return; // user already saw the timeout toast; don't override.
     editor.setModel(root, animations);
     panel.render(diagnose(root, animations));
     sceneTree.refresh();
@@ -368,16 +399,14 @@ async function handleFiles(files: File[]) {
     setExportEnabled(true);
     refreshOpButtons();
     if (dropzoneHint) dropzoneHint.classList.add('hidden');
-    showToast(
-      `Loaded ${primary?.name ?? format.toUpperCase()}`,
-      'success',
-      2500,
-    );
+    showToast(`Loaded ${primary.name} (${format.toUpperCase()})`, 'success', 2500);
   } catch (err) {
-    console.error(err);
+    if (timedOut) return;
+    console.error('[import] failed:', err);
     showToast(`Import failed: ${(err as Error).message}`, 'error', 6000);
   } finally {
-    setBusy(false);
+    window.clearTimeout(watchdog);
+    if (!timedOut) setBusy(false);
   }
 }
 
