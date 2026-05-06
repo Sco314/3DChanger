@@ -23,6 +23,7 @@
         <button class="btn mode-btn" id="mode-face" title="Face (2)">Face</button>
         <button class="btn mode-btn" id="mode-edge" title="Edge (3)">Edge</button>
         <button class="btn mode-btn" id="mode-vertex" title="Vertex (4)">Vertex</button>
+        <button class="btn mode-btn" id="mode-sculpt" title="Sculpt (5)">Sculpt</button>
         <span class="sep"></span>
         <span class="group-label">Gizmo:</span>
         <button class="btn tool-btn" id="tool-select" title="Off (Q)">Off</button>
@@ -79,6 +80,11 @@
       <aside id="material-panel">
         <h3>Material</h3>
         <div id="material-body"><em class="empty">No mesh selected.</em></div>
+      </aside>
+
+      <aside id="sculpt-panel" hidden>
+        <h3>Sculpt</h3>
+        <div id="sculpt-body"></div>
       </aside>
 
       <div id="dropzone-hint">Drop files here, or use Import…</div>

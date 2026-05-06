@@ -14,6 +14,7 @@ import type { TransformMode } from '../scene/TransformGizmo.js';
 import { pickComponent } from '../scene/components/picking.js';
 import type { ComponentMode } from '../scene/components/types.js';
 import { MaterialPanel } from '../ui/MaterialPanel.js';
+import { SculptPanel } from '../ui/SculptPanel.js';
 
 const app = document.getElementById('app')!;
 const viewport = document.getElementById('viewport')!;
@@ -63,6 +64,17 @@ editor.selection.on(() => materialPanel.render());
 editor.componentSelection.on(() => materialPanel.render());
 editor.onTreeChanged(() => materialPanel.render());
 
+// ---- Sculpt panel ----
+
+const sculptPanelEl = document.getElementById('sculpt-panel') as HTMLElement;
+const sculptPanel = new SculptPanel(
+  document.getElementById('sculpt-body')!,
+  editor.sculpt,
+);
+editor.sculpt.on(() => {
+  sculptPanelEl.hidden = !editor.sculpt.enabled;
+});
+
 const exportButtons = {
   glb: document.getElementById('export-glb') as HTMLButtonElement,
   gltf: document.getElementById('export-gltf') as HTMLButtonElement,
@@ -80,12 +92,13 @@ const toolButtons: Record<'select' | TransformMode, HTMLButtonElement> = {
   scale:     document.getElementById('tool-scale') as HTMLButtonElement,
 };
 
-type SelMode = 'object' | ComponentMode;
+type SelMode = 'object' | ComponentMode | 'sculpt';
 const modeButtons: Record<SelMode, HTMLButtonElement> = {
   object: document.getElementById('mode-object') as HTMLButtonElement,
   face:   document.getElementById('mode-face')   as HTMLButtonElement,
   edge:   document.getElementById('mode-edge')   as HTMLButtonElement,
   vertex: document.getElementById('mode-vertex') as HTMLButtonElement,
+  sculpt: document.getElementById('mode-sculpt') as HTMLButtonElement,
 };
 
 const componentBar = document.getElementById('component-actions') as HTMLDivElement;
@@ -165,8 +178,12 @@ function setMode(m: SelMode) {
   for (const [k, btn] of Object.entries(modeButtons)) {
     btn.classList.toggle('active', k === m);
   }
-  componentBar.hidden = (m === 'object');
-  if (m !== 'object') editor.componentSelection.setMode(m);
+  componentBar.hidden = (m === 'object' || m === 'sculpt');
+  if (m === 'face' || m === 'edge' || m === 'vertex') {
+    editor.componentSelection.setMode(m);
+  }
+  editor.sculpt.setEnabled(m === 'sculpt');
+  if (m === 'sculpt') sculptPanel.showWarningOnce();
   refreshComponentButtons();
 }
 setMode('object');
@@ -175,6 +192,7 @@ modeButtons.object.addEventListener('click', () => setMode('object'));
 modeButtons.face.addEventListener('click',   () => setMode('face'));
 modeButtons.edge.addEventListener('click',   () => setMode('edge'));
 modeButtons.vertex.addEventListener('click', () => setMode('vertex'));
+modeButtons.sculpt.addEventListener('click', () => setMode('sculpt'));
 
 function refreshComponentButtons() {
   const seed = editor.componentSelection.getSeed();
@@ -251,6 +269,8 @@ canvas.addEventListener('pointerdown', () => {
 canvas.addEventListener('click', (e) => {
   if (gizmoOwnedPointer) { gizmoOwnedPointer = false; return; }
   if (editor.gizmo.isDragging()) return;
+  // In Sculpt mode, the canvas drives strokes — selection clicks are off.
+  if (selMode === 'sculpt') return;
 
   const additive = e.shiftKey || e.metaKey || e.ctrlKey;
 
@@ -290,6 +310,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === '2') { setMode('face');   e.preventDefault(); return; }
   if (e.key === '3') { setMode('edge');   e.preventDefault(); return; }
   if (e.key === '4') { setMode('vertex'); e.preventDefault(); return; }
+  if (e.key === '5') { setMode('sculpt'); e.preventDefault(); return; }
 
   if (e.key === 'h' || e.key === 'H') {
     for (const obj of editor.selection.all()) editor.toggleVisibility(obj);
