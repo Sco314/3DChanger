@@ -24,6 +24,7 @@ body {
 #toolbar .sep { width: 1px; height: 18px; background: #3a3f46; margin: 0 4px; }
 #toolbar .group-label { color: #8a9099; }
 .btn {
+  display: inline-flex; align-items: center; gap: 6px;
   background: #2f343a;
   border: 1px solid #3a4047;
   color: #e6e7e9;
@@ -31,9 +32,20 @@ body {
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
+  user-select: none;
+  line-height: 1.2;
 }
 .btn:hover { background: #3a4047; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid #4a82ff; outline-offset: 1px; }
+.btn-primary {
+  background: #4a82ff;
+  border-color: #4a82ff;
+  color: #fff;
+  font-weight: 600;
+}
+.btn-primary:hover { background: #5e90ff; border-color: #5e90ff; }
+.btn-icon { font-size: 14px; line-height: 1; opacity: 0.9; }
 .tool-btn.active { background: #4a82ff; border-color: #4a82ff; color: #fff; }
 .mode-btn.active { background: #ff8a3a; border-color: #ff8a3a; color: #fff; }
 
@@ -191,16 +203,76 @@ ul.mat-slots {
 
 #dropzone-hint {
   position: absolute;
-  bottom: 14px; left: 14px;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
   color: #6a707a;
   pointer-events: none;
   z-index: 5;
+  text-align: center;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 24px 32px;
+  border: 2px dashed #2f343a;
+  border-radius: 10px;
+  background: rgba(35, 38, 42, 0.55);
+  max-width: 460px;
 }
+#dropzone-hint strong { color: #c8ccd0; font-size: 15px; }
+#dropzone-hint .hint-formats { color: #8a9099; font-size: 11px; letter-spacing: 0.04em; }
+#dropzone-hint .hint-or { color: #6a707a; font-size: 12px; }
+#dropzone-hint em { color: #4a82ff; font-style: normal; font-weight: 600; }
+#dropzone-hint.hidden { display: none; }
 #app.drag-over::after {
-  content: "";
+  content: "Drop to import";
   position: absolute; inset: 0;
-  border: 2px dashed #4a82ff;
-  background: rgba(74, 130, 255, 0.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 600; color: #4a82ff;
+  border: 3px dashed #4a82ff;
+  background: rgba(74, 130, 255, 0.10);
   pointer-events: none;
   z-index: 20;
 }
+
+/* Busy overlay during long-running imports */
+#busy-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 30;
+}
+.busy-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  background: #23262a;
+  border: 1px solid #2f343a;
+  border-radius: 8px;
+  color: #e6e7e9;
+}
+.busy-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid #3a4047;
+  border-top-color: #4a82ff;
+  border-radius: 50%;
+  animation: busy-spin 0.8s linear infinite;
+}
+@keyframes busy-spin { to { transform: rotate(360deg); } }
+
+/* Toast host (non-blocking errors / status) */
+#toast-host {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 6px;
+  z-index: 40;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #23262a;
+  border: 1px solid #2f343a;
+  color: #e6e7e9;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  max-width: 480px;
+}
+.toast.error  { background: #3a1f22; border-color: #6a3035; color: #ffd9d9; }
+.toast.info   { background: #1f2c3a; border-color: #2f4a6a; }
+.toast.success{ background: #1f3a26; border-color: #2f6a3a; color: #d9ffd9; }

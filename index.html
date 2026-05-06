@@ -12,11 +12,12 @@
 
       <header id="toolbar">
         <span class="brand">3DChanger</span>
-        <label class="btn">
-          Import…
-          <input type="file" id="file-input" multiple hidden
-                 accept=".glb,.gltf,.obj,.mtl,.stl,.fbx,.3ds,.ply,.dae,.wrl,.3mf,image/*" />
+        <label class="btn btn-primary" for="file-input">
+          <span class="btn-icon" aria-hidden="true">＋</span>
+          <span>Import model</span>
         </label>
+        <input type="file" id="file-input" multiple hidden
+               accept=".glb,.gltf,.obj,.mtl,.stl,.fbx,.3ds,.ply,.dae,.wrl,.3mf,image/*" />
         <span class="sep"></span>
         <span class="group-label">Mode:</span>
         <button class="btn mode-btn" id="mode-object" title="Object (1)">Object</button>
@@ -87,7 +88,20 @@
         <div id="sculpt-body"></div>
       </aside>
 
-      <div id="dropzone-hint">Drop files here, or use Import…</div>
+      <div id="dropzone-hint">
+        <strong>Drop a 3D file here</strong>
+        <span class="hint-formats">GLB, glTF, OBJ + MTL, STL, FBX, 3DS, PLY, DAE, VRML, 3MF</span>
+        <span class="hint-or">or use the <em>Import model</em> button.</span>
+      </div>
+
+      <div id="busy-overlay" hidden>
+        <div class="busy-card">
+          <div class="busy-spinner" aria-hidden="true"></div>
+          <div id="busy-text">Loading…</div>
+        </div>
+      </div>
+
+      <div id="toast-host"></div>
     </div>
     <script type="module" src="/src/app/main.ts"></script>
   </body>

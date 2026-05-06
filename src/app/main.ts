@@ -15,6 +15,7 @@ import { pickComponent } from '../scene/components/picking.js';
 import type { ComponentMode } from '../scene/components/types.js';
 import { MaterialPanel } from '../ui/MaterialPanel.js';
 import { SculptPanel } from '../ui/SculptPanel.js';
+import { setBusy, showToast } from '../ui/feedback.js';
 
 const app = document.getElementById('app')!;
 const viewport = document.getElementById('viewport')!;
@@ -352,19 +353,31 @@ function isEditableTarget(t: EventTarget | null): boolean {
 
 // ---- Import flow ----
 
+const dropzoneHint = document.getElementById('dropzone-hint');
+
 async function handleFiles(files: File[]) {
   if (files.length === 0) return;
+  const primary = files.find((f) => /\.(glb|gltf|obj|stl|fbx|3ds|ply|dae|wrl|3mf)$/i.test(f.name));
+  setBusy(true, primary ? `Loading ${primary.name}…` : 'Loading…');
   try {
-    const { root, animations } = await importFiles(files, editor.renderer);
+    const { root, animations, format } = await importFiles(files, editor.renderer);
     editor.setModel(root, animations);
     panel.render(diagnose(root, animations));
     sceneTree.refresh();
     lastBaseName = baseNameFromFiles(files);
     setExportEnabled(true);
     refreshOpButtons();
+    if (dropzoneHint) dropzoneHint.classList.add('hidden');
+    showToast(
+      `Loaded ${primary?.name ?? format.toUpperCase()}`,
+      'success',
+      2500,
+    );
   } catch (err) {
     console.error(err);
-    alert(`Import failed: ${(err as Error).message}`);
+    showToast(`Import failed: ${(err as Error).message}`, 'error', 6000);
+  } finally {
+    setBusy(false);
   }
 }
 
