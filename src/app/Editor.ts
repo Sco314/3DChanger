@@ -7,6 +7,25 @@ import { Isolation } from '../scene/Isolation.js';
 import { TransformGizmo } from '../scene/TransformGizmo.js';
 import { isLocked, setLocked } from '../scene/objectMeta.js';
 import { duplicateObject } from '../scene/operations.js';
+import { ComponentSelection } from '../scene/components/ComponentSelection.js';
+import { ComponentVisuals } from '../scene/components/ComponentVisuals.js';
+import {
+  deleteFaces,
+  keepFaces,
+  separateFaces,
+  detachByMaterial as detachByMaterialOp,
+  detachByComponent as detachByComponentOp,
+  fillHoles as fillHolesOp,
+  recomputeNormals as recomputeNormalsOp,
+  type EditDelta,
+} from '../scene/edit/meshEdits.js';
+import {
+  makeMaterial,
+  makeMaterialUnique as makeMaterialUniqueOp,
+  assignFaceMaterial,
+} from '../scene/materials/materialOps.js';
+import { SculptMode } from '../scene/sculpt/SculptMode.js';
+import { invalidateSculptCache } from '../scene/sculpt/SculptContext.js';
 
 export class Editor {
   readonly renderer: THREE.WebGLRenderer;
@@ -24,6 +43,9 @@ export class Editor {
   readonly selectionVisuals: SelectionVisuals;
   readonly isolation = new Isolation();
   readonly gizmo: TransformGizmo;
+  readonly componentSelection = new ComponentSelection();
+  readonly componentVisuals: ComponentVisuals;
+  readonly sculpt: SculptMode;
 
   /** Fired after a scene-tree-relevant change (visibility, lock, hierarchy). */
   private readonly treeListeners = new Set<() => void>();
@@ -55,6 +77,17 @@ export class Editor {
 
     this.selectionVisuals = new SelectionVisuals(this.scene, this.selection);
     this.gizmo = new TransformGizmo(this.camera, this.renderer.domElement, this.scene, this.controls);
+    this.componentVisuals = new ComponentVisuals(this.scene, this.componentSelection);
+    this.sculpt = new SculptMode(
+      this.scene,
+      this.camera,
+      this.renderer.domElement,
+      this.controls,
+      () => {
+        const p = this.selection.primary();
+        return p && (p as THREE.Mesh).isMesh ? (p as THREE.Mesh) : null;
+      },
+    );
 
     // Keep gizmo's attached object in sync with the primary selection.
     this.selection.on(() => {
@@ -94,8 +127,14 @@ export class Editor {
 
   /** Replace the current model with a new root, then frame the camera on it. */
   setModel(root: THREE.Object3D, animations: THREE.AnimationClip[] = []) {
+    this.sculpt.setEnabled(false);
+    // Drop any sculpt cache on outgoing meshes so we don't keep refs.
+    this.modelRoot.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) invalidateSculptCache(o as THREE.Mesh);
+    });
     this.isolation.exit(this.modelRoot);
     this.selection.clear();
+    this.componentSelection.clear();
     this.modelRoot.clear();
     this.modelRoot.add(root);
     this.animations = animations;
@@ -164,5 +203,137 @@ export class Editor {
       this.emitTreeChanged();
     }
     return created;
+  }
+
+  // ---- Mesh edit operations (Slice 4) ----
+
+  /** Delete every selected face on every mesh that has component selection. */
+  deleteSelectedFaces(): EditDelta {
+    return this.applyToFaceMeshes((mesh, faces) => deleteFaces(mesh, faces));
+  }
+
+  /** Keep selected faces on each mesh, drop everything else on those meshes. */
+  keepSelectedFaces(): EditDelta {
+    return this.applyToFaceMeshes((mesh, faces) => keepFaces(mesh, faces));
+  }
+
+  /** Separate the selected faces of each mesh into a new sibling Mesh. */
+  separateSelectedFaces(): EditDelta {
+    return this.applyToFaceMeshes((mesh, faces) => separateFaces(mesh, faces));
+  }
+
+  /** Split each selected mesh into one new Mesh per material slot. */
+  detachByMaterial(): EditDelta {
+    return this.applyToObjectMeshes((mesh) => detachByMaterialOp(mesh));
+  }
+
+  /** Split each selected mesh into one new Mesh per connected component. */
+  detachByComponent(): EditDelta {
+    return this.applyToObjectMeshes((mesh) => detachByComponentOp(mesh));
+  }
+
+  /** Fill all detected boundary loops on each selected mesh. */
+  fillHoles(): EditDelta {
+    return this.applyToObjectMeshes((mesh) => fillHolesOp(mesh));
+  }
+
+  /** Recompute vertex normals on each selected mesh. */
+  recomputeNormals(): EditDelta {
+    return this.applyToObjectMeshes((mesh) => recomputeNormalsOp(mesh));
+  }
+
+  // ---- Material assignment (Slice 5) ----
+
+  /**
+   * Clone material instances on every selected mesh so subsequent property
+   * edits don't bleed across meshes that shared the original material(s).
+   * Texture references are preserved.
+   */
+  makeMaterialsUnique(): boolean {
+    let changed = false;
+    for (const obj of this.selection.all()) {
+      if (!(obj as THREE.Mesh).isMesh) continue;
+      makeMaterialUniqueOp(obj as THREE.Mesh);
+      changed = true;
+    }
+    if (changed) this.emitTreeChanged();
+    return changed;
+  }
+
+  /**
+   * For every Mesh in the component selection with non-empty face set, append
+   * a new MeshStandardMaterial slot covering those faces. The new material
+   * is cloned from the mesh's first slot so existing textures and UV mapping
+   * carry over.
+   */
+  addSlotForSelectedFaces(): boolean {
+    let changed = false;
+    for (const [mesh, state] of this.componentSelection.states_()) {
+      if (state.faces.size === 0) continue;
+      const template = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const newMat = makeMaterial(template);
+      newMat.name = `${mesh.name || 'mat'} slot`;
+      assignFaceMaterial(mesh, state.faces, newMat);
+      changed = true;
+    }
+    if (changed) {
+      // Component selection face indices stay valid (we didn't change the
+      // index buffer or geometry), so we leave it intact. Tree refreshes so
+      // panels can re-render.
+      this.emitTreeChanged();
+    }
+    return changed;
+  }
+
+  // ---- Internals ----
+
+  private applyToFaceMeshes(
+    op: (mesh: THREE.Mesh, faces: ReadonlySet<number>) => EditDelta,
+  ): EditDelta {
+    const states = this.componentSelection.states_();
+    if (states.size === 0) return { removed: [], added: [], modified: [] };
+    // Snapshot to avoid mutation while iterating.
+    const work: Array<[THREE.Mesh, ReadonlySet<number>]> = [];
+    for (const [mesh, state] of states) {
+      if (state.faces.size === 0) continue;
+      work.push([mesh, new Set(state.faces)]);
+    }
+    return this.applyDeltas(work.map(([m, f]) => op(m, f)));
+  }
+
+  private applyToObjectMeshes(op: (mesh: THREE.Mesh) => EditDelta): EditDelta {
+    const targets: THREE.Mesh[] = [];
+    for (const obj of this.selection.all()) {
+      if ((obj as THREE.Mesh).isMesh) targets.push(obj as THREE.Mesh);
+    }
+    if (targets.length === 0) return { removed: [], added: [], modified: [] };
+    return this.applyDeltas(targets.map((m) => op(m)));
+  }
+
+  private applyDeltas(deltas: EditDelta[]): EditDelta {
+    const merged: EditDelta = { removed: [], added: [], modified: [] };
+    for (const d of deltas) {
+      merged.removed.push(...d.removed);
+      merged.added.push(...d.added);
+      merged.modified.push(...d.modified);
+    }
+    if (merged.removed.length === 0 && merged.added.length === 0 && merged.modified.length === 0) {
+      return merged;
+    }
+
+    // Drop any selection / gizmo references to removed meshes.
+    for (const m of merged.removed) {
+      this.selection.remove(m);
+      if (this.gizmo.controls.object === m) this.gizmo.detach();
+    }
+    // Component-level face/edge/vertex indices are no longer meaningful for
+    // any mesh whose geometry changed. Clear globally — re-selecting after
+    // an edit is cheap; trying to remap face indices is not.
+    this.componentSelection.clear();
+
+    // Refresh visuals and tree.
+    this.selectionVisuals.refresh();
+    this.emitTreeChanged();
+    return merged;
   }
 }

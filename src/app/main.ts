@@ -1,3 +1,5 @@
+import type * as THREE from 'three';
+
 import { Editor } from './Editor.js';
 import { importFiles } from '../io/import/index.js';
 import { diagnose } from '../diagnostics/diagnose.js';
@@ -9,6 +11,10 @@ import { exportSTL } from '../io/export/exportSTL.js';
 import { SceneTree } from '../scene/SceneTree.js';
 import { pickObject } from '../scene/picking.js';
 import type { TransformMode } from '../scene/TransformGizmo.js';
+import { pickComponent } from '../scene/components/picking.js';
+import type { ComponentMode } from '../scene/components/types.js';
+import { MaterialPanel } from '../ui/MaterialPanel.js';
+import { SculptPanel } from '../ui/SculptPanel.js';
 
 const app = document.getElementById('app')!;
 const viewport = document.getElementById('viewport')!;
@@ -30,6 +36,45 @@ sceneTree.onSelectRow = (obj, e) => {
 };
 editor.onTreeChanged(() => sceneTree.refresh());
 
+// ---- Material panel ----
+
+function activeMaterialMesh(): THREE.Mesh | null {
+  const primary = editor.selection.primary();
+  if (primary && (primary as THREE.Mesh).isMesh) return primary as THREE.Mesh;
+  // Fall back to component-selection seed mesh.
+  const seed = editor.componentSelection.getSeed();
+  return seed?.mesh ?? null;
+}
+
+const materialPanel = new MaterialPanel(
+  document.getElementById('material-body')!,
+  {
+    getActiveMesh: () => activeMaterialMesh(),
+    hasFaceSelection: () => {
+      for (const [, s] of editor.componentSelection.states_()) {
+        if (s.faces.size > 0) return true;
+      }
+      return false;
+    },
+    onMakeUnique: () => editor.makeMaterialsUnique(),
+    onAddSlotForFaces: () => editor.addSlotForSelectedFaces(),
+  },
+);
+editor.selection.on(() => materialPanel.render());
+editor.componentSelection.on(() => materialPanel.render());
+editor.onTreeChanged(() => materialPanel.render());
+
+// ---- Sculpt panel ----
+
+const sculptPanelEl = document.getElementById('sculpt-panel') as HTMLElement;
+const sculptPanel = new SculptPanel(
+  document.getElementById('sculpt-body')!,
+  editor.sculpt,
+);
+editor.sculpt.on(() => {
+  sculptPanelEl.hidden = !editor.sculpt.enabled;
+});
+
 const exportButtons = {
   glb: document.getElementById('export-glb') as HTMLButtonElement,
   gltf: document.getElementById('export-gltf') as HTMLButtonElement,
@@ -45,6 +90,35 @@ const toolButtons: Record<'select' | TransformMode, HTMLButtonElement> = {
   translate: document.getElementById('tool-translate') as HTMLButtonElement,
   rotate:    document.getElementById('tool-rotate') as HTMLButtonElement,
   scale:     document.getElementById('tool-scale') as HTMLButtonElement,
+};
+
+type SelMode = 'object' | ComponentMode | 'sculpt';
+const modeButtons: Record<SelMode, HTMLButtonElement> = {
+  object: document.getElementById('mode-object') as HTMLButtonElement,
+  face:   document.getElementById('mode-face')   as HTMLButtonElement,
+  edge:   document.getElementById('mode-edge')   as HTMLButtonElement,
+  vertex: document.getElementById('mode-vertex') as HTMLButtonElement,
+  sculpt: document.getElementById('mode-sculpt') as HTMLButtonElement,
+};
+
+const componentBar = document.getElementById('component-actions') as HTMLDivElement;
+const caButtons = {
+  byObject:   document.getElementById('ca-by-object')   as HTMLButtonElement,
+  byMaterial: document.getElementById('ca-by-material') as HTMLButtonElement,
+  connected:  document.getElementById('ca-connected')   as HTMLButtonElement,
+  byAngle:    document.getElementById('ca-by-angle')    as HTMLButtonElement,
+  clear:      document.getElementById('ca-clear')       as HTMLButtonElement,
+};
+const caAngleInput = document.getElementById('ca-angle-deg') as HTMLInputElement;
+
+const edButtons = {
+  deleteFaces:   document.getElementById('ed-delete')             as HTMLButtonElement,
+  keepFaces:     document.getElementById('ed-keep')               as HTMLButtonElement,
+  separate:      document.getElementById('ed-separate')           as HTMLButtonElement,
+  detachMat:     document.getElementById('ed-detach-mat')         as HTMLButtonElement,
+  detachComp:    document.getElementById('ed-detach-comp')        as HTMLButtonElement,
+  fillHoles:     document.getElementById('ed-fill-holes')         as HTMLButtonElement,
+  recomputeNorm: document.getElementById('ed-recompute-normals')  as HTMLButtonElement,
 };
 
 let lastBaseName = 'model';
@@ -95,6 +169,92 @@ opButtons.isolate.addEventListener('click', () => {
 });
 opButtons.duplicate.addEventListener('click', () => editor.duplicateSelection());
 
+// ---- Selection mode ----
+
+let selMode: SelMode = 'object';
+
+function setMode(m: SelMode) {
+  selMode = m;
+  for (const [k, btn] of Object.entries(modeButtons)) {
+    btn.classList.toggle('active', k === m);
+  }
+  componentBar.hidden = (m === 'object' || m === 'sculpt');
+  if (m === 'face' || m === 'edge' || m === 'vertex') {
+    editor.componentSelection.setMode(m);
+  }
+  editor.sculpt.setEnabled(m === 'sculpt');
+  if (m === 'sculpt') sculptPanel.showWarningOnce();
+  refreshComponentButtons();
+}
+setMode('object');
+
+modeButtons.object.addEventListener('click', () => setMode('object'));
+modeButtons.face.addEventListener('click',   () => setMode('face'));
+modeButtons.edge.addEventListener('click',   () => setMode('edge'));
+modeButtons.vertex.addEventListener('click', () => setMode('vertex'));
+modeButtons.sculpt.addEventListener('click', () => setMode('sculpt'));
+
+function refreshComponentButtons() {
+  const seed = editor.componentSelection.getSeed();
+  const hasSeed = seed !== null;
+  const hasAny = editor.componentSelection.size() > 0;
+  caButtons.byObject.disabled = !hasSeed;
+  caButtons.byMaterial.disabled = !hasSeed;
+  caButtons.connected.disabled = !hasSeed;
+  caButtons.byAngle.disabled = !hasSeed;
+  caButtons.clear.disabled = !hasAny;
+}
+editor.componentSelection.on(refreshComponentButtons);
+
+caButtons.byObject.addEventListener('click', () => editor.componentSelection.selectByObject());
+caButtons.byMaterial.addEventListener('click', () => editor.componentSelection.selectByMaterial(editor.modelRoot));
+caButtons.connected.addEventListener('click', () => editor.componentSelection.selectConnected());
+caButtons.byAngle.addEventListener('click', () => {
+  const deg = Number(caAngleInput.value);
+  editor.componentSelection.selectByNormalAngle(Number.isFinite(deg) ? deg : 30);
+});
+caButtons.clear.addEventListener('click', () => editor.componentSelection.clear());
+
+// ---- Edit actions (Slice 4) ----
+
+function hasFaceSelection(): boolean {
+  for (const [, s] of editor.componentSelection.states_()) {
+    if (s.faces.size > 0) return true;
+  }
+  return false;
+}
+
+function hasMeshObjectSelection(): boolean {
+  for (const obj of editor.selection.all()) {
+    if ((obj as THREE.Mesh).isMesh) return true;
+  }
+  return false;
+}
+
+function refreshEditButtons() {
+  const faces = hasFaceSelection();
+  const meshes = hasMeshObjectSelection();
+  edButtons.deleteFaces.disabled = !faces;
+  edButtons.keepFaces.disabled = !faces;
+  edButtons.separate.disabled = !faces;
+  edButtons.detachMat.disabled = !meshes;
+  edButtons.detachComp.disabled = !meshes;
+  edButtons.fillHoles.disabled = !meshes;
+  edButtons.recomputeNorm.disabled = !meshes;
+}
+editor.selection.on(refreshEditButtons);
+editor.componentSelection.on(refreshEditButtons);
+editor.onTreeChanged(refreshEditButtons);
+refreshEditButtons();
+
+edButtons.deleteFaces.addEventListener('click',   () => editor.deleteSelectedFaces());
+edButtons.keepFaces.addEventListener('click',     () => editor.keepSelectedFaces());
+edButtons.separate.addEventListener('click',      () => editor.separateSelectedFaces());
+edButtons.detachMat.addEventListener('click',     () => editor.detachByMaterial());
+edButtons.detachComp.addEventListener('click',    () => editor.detachByComponent());
+edButtons.fillHoles.addEventListener('click',     () => editor.fillHoles());
+edButtons.recomputeNorm.addEventListener('click', () => editor.recomputeNormals());
+
 // ---- Viewport picking ----
 
 let gizmoOwnedPointer = false;
@@ -109,14 +269,31 @@ canvas.addEventListener('pointerdown', () => {
 canvas.addEventListener('click', (e) => {
   if (gizmoOwnedPointer) { gizmoOwnedPointer = false; return; }
   if (editor.gizmo.isDragging()) return;
+  // In Sculpt mode, the canvas drives strokes — selection clicks are off.
+  if (selMode === 'sculpt') return;
 
-  const hit = pickObject(e, canvas, editor.camera, editor.modelRoot);
-  if (!hit) {
-    if (!(e.shiftKey || e.metaKey || e.ctrlKey)) editor.selection.clear();
+  const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+
+  if (selMode === 'object') {
+    const hit = pickObject(e, canvas, editor.camera, editor.modelRoot);
+    if (!hit) {
+      if (!additive) editor.selection.clear();
+      return;
+    }
+    if (additive) editor.selection.toggle(hit);
+    else editor.selection.set(hit);
     return;
   }
-  if (e.shiftKey || e.metaKey || e.ctrlKey) editor.selection.toggle(hit);
-  else editor.selection.set(hit);
+
+  // Component modes (face / edge / vertex).
+  const cHit = pickComponent(e, canvas, editor.camera, editor.modelRoot);
+  if (!cHit) {
+    if (!additive) editor.componentSelection.clear();
+    return;
+  }
+  if (selMode === 'face')   editor.componentSelection.toggleFace(cHit.mesh, cHit.faceIndex, additive);
+  if (selMode === 'edge')   editor.componentSelection.toggleEdge(cHit.mesh, cHit.nearestEdge, additive);
+  if (selMode === 'vertex') editor.componentSelection.toggleVertex(cHit.mesh, cHit.nearestVertex, additive);
 });
 
 // ---- Keyboard shortcuts ----
@@ -128,6 +305,12 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'w' || e.key === 'W') { setTool('translate'); e.preventDefault(); return; }
   if (e.key === 'e' || e.key === 'E') { setTool('rotate');    e.preventDefault(); return; }
   if (e.key === 'r' || e.key === 'R') { setTool('scale');     e.preventDefault(); return; }
+
+  if (e.key === '1') { setMode('object'); e.preventDefault(); return; }
+  if (e.key === '2') { setMode('face');   e.preventDefault(); return; }
+  if (e.key === '3') { setMode('edge');   e.preventDefault(); return; }
+  if (e.key === '4') { setMode('vertex'); e.preventDefault(); return; }
+  if (e.key === '5') { setMode('sculpt'); e.preventDefault(); return; }
 
   if (e.key === 'h' || e.key === 'H') {
     for (const obj of editor.selection.all()) editor.toggleVisibility(obj);
@@ -145,8 +328,16 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (hasFaceSelection()) {
+      editor.deleteSelectedFaces();
+      e.preventDefault();
+    }
+    return;
+  }
   if (e.key === 'Escape') {
     if (editor.isolation.isActive()) editor.exitIsolate();
+    else if (editor.componentSelection.size() > 0) editor.componentSelection.clear();
     else editor.selection.clear();
     e.preventDefault();
   }
@@ -179,7 +370,7 @@ async function handleFiles(files: File[]) {
 
 function baseNameFromFiles(files: File[]): string {
   const preferred =
-    files.find((f) => /\.(glb|gltf|obj|stl)$/i.test(f.name)) ?? files[0];
+    files.find((f) => /\.(glb|gltf|obj|stl|fbx|3ds|ply|dae|wrl|3mf)$/i.test(f.name)) ?? files[0];
   return preferred.name.replace(/\.[^.]+$/, '') || 'model';
 }
 
