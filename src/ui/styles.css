@@ -1,4 +1,12 @@
 html, body, #app { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+
+/* Make the HTML `hidden` attribute win against ID-scoped rules below that
+   declare `display: flex` (e.g. #busy-overlay, #component-actions). Without
+   this, the busy overlay renders on initial page load even though the
+   element is marked hidden, because ID specificity (0,1,0,0) beats the UA
+   `[hidden]` rule (0,0,1,0). */
+[hidden] { display: none !important; }
+
 body {
   background: #181a1c;
   color: #e6e7e9;
