@@ -29,8 +29,11 @@ export async function loadGLTF(
 
   const { manager, dispose } = makeFileManager(fileMap);
 
-  const draco = new DRACOLoader(manager).setDecoderPath('/draco/');
-  const ktx2 = new KTX2Loader(manager).setTranscoderPath('/basis/').detectSupport(renderer);
+  // BASE_URL respects vite's `base` setting (e.g. './' on GitHub Pages),
+  // so decoder fetches resolve relative to the deployment root, not '/'.
+  const base = import.meta.env.BASE_URL;
+  const draco = new DRACOLoader(manager).setDecoderPath(`${base}draco/`);
+  const ktx2 = new KTX2Loader(manager).setTranscoderPath(`${base}basis/`).detectSupport(renderer);
 
   const loader = new GLTFLoader(manager)
     .setDRACOLoader(draco)
