@@ -17,14 +17,20 @@ The first `dev` or `build` runs `scripts/copy-decoders.mjs` once, copying Draco 
 
 ## Deploy
 
-A GitHub Actions workflow at [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) builds `dist/` and publishes it to GitHub Pages on every push to `main`.
+A GitHub Actions workflow at [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) builds `dist/` on every push to `main` and **force-pushes the result to a `gh-pages` branch**.
 
-To enable it on a fresh fork:
+One-time setup on a fresh fork:
 
-1. Repo **Settings → Pages → Build and deployment → Source → GitHub Actions**.
-2. Push to `main`; the workflow runs and the site is served at `https://<user>.github.io/<repo>/`.
+1. Repo **Settings → Actions → General → Workflow permissions** → "Read and write permissions". (Lets the workflow push the `gh-pages` branch.)
+2. Push to `main` once so the workflow runs and creates the `gh-pages` branch.
+3. Repo **Settings → Pages → Build and deployment**:
+   - **Source:** "Deploy from a branch"
+   - **Branch:** `gh-pages`, folder `/ (root)`.
+4. Site is served at `https://<user>.github.io/<repo>/`.
 
-`vite.config.ts` sets `base: './'` so the build uses relative URLs and works under any subpath, including project-style Pages URLs.
+If the page renders as plain unstyled text with `/src/...` links visible in DevTools Network, Pages is serving the repo source — re-check step 3.
+
+`vite.config.ts` sets `base: './'` so all built URLs are relative and work under any subpath.
 
 ## License
 

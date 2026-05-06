@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Build and publish to gh-pages
 
 on:
   push:
@@ -6,12 +6,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: gh-pages
   cancel-in-progress: false
 
 jobs:
@@ -19,6 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Need full history so `git rev-parse --short HEAD` returns a real
+          # SHA in the build pill instead of "dev".
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -31,18 +33,24 @@ jobs:
       - name: Build
         run: npm run build
 
-      - uses: actions/configure-pages@v5
+      # Add a .nojekyll so GitHub Pages serves files starting with `_` and
+      # doesn't run the markdown through Jekyll.
+      - name: Disable Jekyll
+        run: touch dist/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages branch
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          cd dist
+          git init -q -b gh-pages
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA::7}"
+          # Force-push: gh-pages is a deploy branch, history doesn't need to
+          # be preserved.
+          git push -f -q origin gh-pages
