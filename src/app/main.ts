@@ -16,10 +16,28 @@ import type { ComponentMode } from '../scene/components/types.js';
 import { MaterialPanel } from '../ui/MaterialPanel.js';
 import { SculptPanel } from '../ui/SculptPanel.js';
 import { setBusy, showToast } from '../ui/feedback.js';
+import { DebugConsole } from '../ui/DebugConsole.js';
 
 const app = document.getElementById('app')!;
 const viewport = document.getElementById('viewport')!;
 const editor = new Editor(viewport);
+
+// ---- Build identification + in-app debug log ----
+
+const debugConsole = new DebugConsole();
+const toolbarEl = document.getElementById('toolbar')!;
+debugConsole.attachToggle(toolbarEl);
+
+const buildPill = document.getElementById('build-pill') as HTMLElement | null;
+if (buildPill) {
+  buildPill.textContent = `build ${__BUILD_SHA__}`;
+  buildPill.addEventListener('click', async () => {
+    const stamp = `3DChanger build ${__BUILD_SHA__} (${__BUILD_TIME__})`;
+    try { await navigator.clipboard.writeText(stamp); showToast('Build version copied', 'info', 1800); }
+    catch { showToast(stamp, 'info', 4000); }
+  });
+}
+console.info(`[boot] 3DChanger build ${__BUILD_SHA__} (${__BUILD_TIME__})`);
 
 const panel = new DiagnosticsPanel(document.getElementById('diagnostics-body')!);
 panel.reset();
@@ -356,7 +374,7 @@ function isEditableTarget(t: EventTarget | null): boolean {
 const dropzoneHint = document.getElementById('dropzone-hint');
 
 const SUPPORTED_RE = /\.(glb|gltf|obj|stl|fbx|3ds|ply|dae|wrl|3mf)$/i;
-const IMPORT_TIMEOUT_MS = 60_000;
+const IMPORT_TIMEOUT_MS = 25_000;
 
 async function handleFiles(files: File[]) {
   if (files.length === 0) return;

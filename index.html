@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Discourage caching of the entry HTML so users don't get stuck on a
+         stale bundle when we deploy fixes. Asset URLs already have hashes
+         so they'll cache fine; only this document needs to be fresh. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>3DChanger</title>
     <link rel="stylesheet" href="/src/ui/styles.css" />
   </head>
@@ -12,6 +18,7 @@
 
       <header id="toolbar">
         <span class="brand">3DChanger</span>
+        <span class="build-pill" id="build-pill" title="Bundle version — click to copy"></span>
         <label class="btn btn-primary" for="file-input">
           <span class="btn-icon" aria-hidden="true">＋</span>
           <span>Import model</span>
