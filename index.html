@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Discourage caching of the entry HTML so users don't get stuck on a
+         stale bundle when we deploy fixes. Asset URLs already have hashes
+         so they'll cache fine; only this document needs to be fresh. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>3DChanger</title>
+    <script type="module" crossorigin src="./assets/index-BzixmBAp.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Cz2yj0dd.css">
+  </head>
+  <body>
+    <div id="app">
+      <div id="viewport"></div>
+
+      <header id="toolbar">
+        <span class="brand">3DChanger</span>
+        <span class="build-pill" id="build-pill" title="Bundle version — click to copy"></span>
+        <label class="btn btn-primary" for="file-input">
+          <span class="btn-icon" aria-hidden="true">＋</span>
+          <span>Import model</span>
+        </label>
+        <input type="file" id="file-input" multiple hidden
+               accept=".glb,.gltf,.obj,.mtl,.stl,.fbx,.3ds,.ply,.dae,.wrl,.3mf,image/*" />
+        <span class="sep"></span>
+        <span class="group-label">Mode:</span>
+        <button class="btn mode-btn" id="mode-object" title="Object (1)">Object</button>
+        <button class="btn mode-btn" id="mode-face" title="Face (2)">Face</button>
+        <button class="btn mode-btn" id="mode-edge" title="Edge (3)">Edge</button>
+        <button class="btn mode-btn" id="mode-vertex" title="Vertex (4)">Vertex</button>
+        <button class="btn mode-btn" id="mode-sculpt" title="Sculpt (5)">Sculpt</button>
+        <span class="sep"></span>
+        <span class="group-label">Gizmo:</span>
+        <button class="btn tool-btn" id="tool-select" title="Off (Q)">Off</button>
+        <button class="btn tool-btn" id="tool-translate" title="Translate (W)">Move</button>
+        <button class="btn tool-btn" id="tool-rotate" title="Rotate (E)">Rotate</button>
+        <button class="btn tool-btn" id="tool-scale" title="Scale (R)">Scale</button>
+        <span class="sep"></span>
+        <button class="btn" id="op-isolate" title="Isolate (I) / exit (Esc)" disabled>Isolate</button>
+        <button class="btn" id="op-duplicate" title="Duplicate (Shift+D)" disabled>Duplicate</button>
+        <span class="sep"></span>
+        <span class="group-label">Export:</span>
+        <button class="btn" id="export-glb" disabled>GLB</button>
+        <button class="btn" id="export-gltf" disabled>glTF (zip)</button>
+        <button class="btn" id="export-obj" disabled>OBJ</button>
+        <button class="btn" id="export-stl" disabled>STL</button>
+      </header>
+
+      <div id="component-actions" hidden>
+        <span class="group-label">Component actions:</span>
+        <button class="btn" id="ca-by-object" disabled title="Select all faces of the seed mesh">By Object</button>
+        <button class="btn" id="ca-by-material" disabled title="Select faces sharing the seed material across the scene">By Material</button>
+        <button class="btn" id="ca-connected" disabled title="Flood-fill faces from the seed via shared edges">Connected</button>
+        <button class="btn" id="ca-by-angle" disabled title="Flood-fill stopping at hard edges (dihedral &gt; threshold)">By Angle</button>
+        <label class="inline">
+          Angle (°):
+          <input type="number" id="ca-angle-deg" min="0" max="180" step="1" value="30" />
+        </label>
+        <button class="btn" id="ca-clear" disabled title="Clear component selection">Clear</button>
+      </div>
+
+      <div id="edit-actions">
+        <span class="group-label">Edit:</span>
+        <button class="btn" id="ed-delete" disabled title="Delete selected faces (Del)">Delete Faces</button>
+        <button class="btn" id="ed-keep" disabled title="Keep selected faces, delete the rest on those meshes">Keep Faces</button>
+        <button class="btn" id="ed-separate" disabled title="Move selected faces into a new sibling Mesh">Separate</button>
+        <span class="sep"></span>
+        <button class="btn" id="ed-detach-mat" disabled title="Split selected meshes by material slot">Detach by Material</button>
+        <button class="btn" id="ed-detach-comp" disabled title="Split selected meshes by connected component">Detach by Component</button>
+        <span class="sep"></span>
+        <button class="btn" id="ed-fill-holes" disabled title="Fill open boundary loops on selected meshes (centroid fan)">Fill Holes</button>
+        <button class="btn" id="ed-recompute-normals" disabled title="Run computeVertexNormals() on selected meshes">Recompute Normals</button>
+      </div>
+
+      <aside id="scene-panel">
+        <h3>Scene</h3>
+        <div id="scene-tree"><em class="empty">No model loaded.</em></div>
+      </aside>
+
+      <aside id="diagnostics">
+        <h3>Diagnostics</h3>
+        <div id="diagnostics-body"><em>No model loaded.</em></div>
+      </aside>
+
+      <aside id="material-panel">
+        <h3>Material</h3>
+        <div id="material-body"><em class="empty">No mesh selected.</em></div>
+      </aside>
+
+      <aside id="sculpt-panel" hidden>
+        <h3>Sculpt</h3>
+        <div id="sculpt-body"></div>
+      </aside>
+
+      <div id="dropzone-hint">
+        <strong>Drop a 3D file here</strong>
+        <span class="hint-formats">GLB, glTF, OBJ + MTL, STL, FBX, 3DS, PLY, DAE, VRML, 3MF</span>
+        <span class="hint-or">or use the <em>Import model</em> button.</span>
+      </div>
+
+      <div id="busy-overlay" hidden>
+        <div class="busy-card">
+          <div class="busy-spinner" aria-hidden="true"></div>
+          <div id="busy-text">Loading…</div>
+        </div>
+      </div>
+
+      <div id="toast-host"></div>
+    </div>
+  </body>
+</html>
